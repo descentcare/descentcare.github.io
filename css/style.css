@@ -1,0 +1,23 @@
+body {
+    background-color: darkgray;
+}
+
+.scale {
+    animation: scale 5s infinite linear;
+    width: 100px;
+    height: 100px;
+    margin: 100px;
+    background-color: lime;
+    text-align: center;
+}
+@keyframes scale {
+    0% {
+        transform: scale(1);
+    }
+    10% {
+        transform: scale(1.1);
+    }
+    20% {
+        transform: scale(1);
+    }
+}
