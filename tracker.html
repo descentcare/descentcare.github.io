@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Initiative tracker</title>
+</head>
+<body>
+    <h1>Initiative Tracker</h1>
+    <input type="button" value="+" id="plus">
+    <input type="button" value="sort" id="sort">
+    <input type="button" value="roll" id="roll">
+    <ol id="tracker_list">
+        <li>
+            <input type="button" value="-" onclick="return this.parentNode.remove()">
+            <input type="text" class="name" placeholder="creature">
+            <input type="number" class="bonus" placeholder="+0" style="width: 3em">
+            <select class="advantage">
+                <option value=0>No</option>
+                <option value=1>Advantage</option>
+                <option value=2>Disadvantage</option>
+            </select>
+            =
+            <input type="text" class="result" value="" size="1">
+            <label for="reroll">reroll?</label>
+            <input type="checkbox" class="reroll" name="reroll">
+        </li>
+    </ol>
+
+    <script type="text/javascript" src="js/tracker.js"></script>
+</body>
+</html>
