@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Калькулятор бросков кубов</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .input-group {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        #formula-input {
+            flex: 1;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 4px 0 0 4px;
+        }
+        #roll-button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        #save-button {
+            padding: 10px 15px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        #clear-button {
+            padding: 10px 15px;
+            background-color: #9621F3;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        #roll-button:hover {
+            background-color: #45a049;
+        }
+        #save-button:hover {
+            background-color: #0b7dda;
+        }
+        #clear-button:hover {
+            background-color: #7d0bda;
+        }
+        #results {
+            margin-top: 20px;
+        }
+        .roll-result {
+            background-color: #f9f9f9;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-left: 4px solid #4CAF50;
+        }
+        .formula-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+            min-height: 40px;
+        }
+        .formula-button {
+            padding: 5px 10px;
+            background-color: #e7e7e7;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .formula-button:hover {
+            background-color: #ddd;
+        }
+        .dice-roll {
+            color: #2196F3;
+            font-weight: bold;
+        }
+        .total {
+            font-weight: bold;
+            color: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Калькулятор бросков кубов</h1>
+        <div class="input-group">
+            <input type="text" id="formula-input" placeholder="Например: 2к6 + д20 - 3" />
+            <button id="save-button">Сохранить</button>
+            <button id="clear-button">Очистить куки</button>
+            <button id="roll-button">Бросок</button>
+        </div>
+        <div class="formula-buttons" id="saved-formulas"></div>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const formulaInput = document.getElementById('formula-input');
+            const rollButton = document.getElementById('roll-button');
+            const saveButton = document.getElementById('save-button');
+            const clearButton = document.getElementById('clear-button');
+            const resultsDiv = document.getElementById('results');
+            const savedFormulasDiv = document.getElementById('saved-formulas');
+            
+            // Инициализация
+            loadSavedFormulas();
+            setupEventListeners();
+            formulaInput.focus();
+            
+            function setupEventListeners() {
+                // Ограничение ввода
+                formulaInput.addEventListener('input', function() {
+                    this.value = this.value.replace(/[^0-9+\-*dkдк\s]/gi, '');
+                });
+                
+                // Обработка Enter
+                formulaInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        processRoll();
+                    }
+                });
+                
+                // Обработка кнопки "Бросок"
+                rollButton.addEventListener('click', processRoll);
+                
+                // Обработка кнопки "Сохранить"
+                saveButton.addEventListener('click', saveCurrentFormula);
+
+                clearButton.addEventListener('click', clearCookie);
+            }
+            
+            function saveCurrentFormula() {
+                const formula = formulaInput.value.trim();
+                if (!formula) {
+                    alert('Введите формулу для сохранения');
+                    return;
+                }
+                
+                saveFormula(formula);
+            }
+            
+            function processRoll() {
+                formulaInput.focus();
+                const formula = formulaInput.value.trim();
+                if (!formula) return;
+                
+                try {
+                    const { result, steps } = calculateRoll(formula);
+                    showResult(formula, result, steps);
+                    formulaInput.value = '';
+                } catch (error) {
+                    alert('Ошибка: ' + error.message);
+                }
+            }
+            
+            function calculateRoll(formula) {
+                // Нормализация (заменяем "д" и "к" на "d")
+                let normalized = formula.toLowerCase()
+                    .replace(/[дкk]/g, 'd');
+                
+                // Разбиваем на токены
+                const tokens = normalized.match(/(\d+d\d+|d\d+|\d+|[+\-*])/g);
+                if (!tokens) throw new Error('Неверный формат формулы');
+                
+                let total = 0;
+                let currentOp = '+';
+                let steps = [];
+                let firstValue = true;
+                
+                for (const token of tokens) {
+                    if (['+', '-', '*'].includes(token)) {
+                        currentOp = token;
+                        steps.push(token);
+                        continue;
+                    }
+                    
+                    let value;
+                    if (token.includes('d')) {
+                        // Бросок кубика
+                        const [countStr, sidesStr] = token.split('d');
+                        const count = countStr ? parseInt(countStr) : 1;
+                        const sides = parseInt(sidesStr);
+                        
+                        if (isNaN(sides) || sides < 1) throw new Error(`Неверное число граней: ${sidesStr}`);
+                        
+                        const rolls = [];
+                        let sum = 0;
+                        
+                        for (let i = 0; i < count; i++) {
+                            const roll = Math.floor(Math.random() * sides) + 1;
+                            rolls.push(roll);
+                            sum += roll;
+                        }
+                        
+                        value = sum;
+                        steps.push(count > 1 
+                            ? `<span class="dice-roll">${count}d${sides} (${rolls.join('+')}) = ${sum}</span>`
+                            : `<span class="dice-roll">d${sides} = ${sum}</span>`);
+                    } else {
+                        // Число
+                        value = parseInt(token);
+                        if (isNaN(value)) throw new Error(`Неверное число: ${token}`);
+                        steps.push(value.toString());
+                    }
+                    
+                    // Вычисление
+                    if (firstValue) {
+                        total = value;
+                        firstValue = false;
+                    } else {
+                        switch (currentOp) {
+                            case '+': total += value; break;
+                            case '-': total -= value; break;
+                            case '*': total *= value; break;
+                        }
+                    }
+                }
+                
+                return { result: total, steps };
+            }
+            
+            function showResult(formula, result, steps) {
+                const div = document.createElement('div');
+                div.className = 'roll-result';
+                div.innerHTML = `
+                    <div><strong>Формула:</strong> ${formula}</div>
+                    <div><strong>Вычисления:</strong> ${steps.join(' ')}</div>
+                    <div class="total">Итог: ${result}</div>
+                `;
+                resultsDiv.prepend(div);
+            }
+            
+            function saveFormula(formula) {
+                let formulas = getSavedFormulas();
+                
+                // Удаляем дубликаты
+                formulas = formulas.filter(f => f !== formula);
+                
+                // Добавляем в начало
+                formulas.unshift(formula);
+                
+                // Сохраняем в куки (бессрочно)
+                const cookieValue = JSON.stringify(formulas);
+                document.cookie = `dice_formulas=${cookieValue}; expires=Fri, 31 Dec 9999 23:59:59 GMT; path=/`;
+                
+                // Обновляем кнопки
+                loadSavedFormulas();
+
+                formulaInput.focus();
+            }
+
+            function clearCookie() {
+                document.cookie = `dice_formulas=; expires=Fri, 31 Dec 9999 23:59:59 GMT; path=/`;
+                // Обновляем кнопки
+                loadSavedFormulas();
+                formulaInput.focus();
+            }
+            
+            function getSavedFormulas() {
+                const name = 'dice_formulas=';
+                const decodedCookie = decodeURIComponent(document.cookie);
+                const cookies = decodedCookie.split(';');
+                
+                for (let i = 0; i < cookies.length; i++) {
+                    let cookie = cookies[i].trim();
+                    if (cookie.indexOf(name) === 0) {
+                        const cookieValue = cookie.substring(name.length);
+                        try {
+                            const parsed = JSON.parse(cookieValue);
+                            return Array.isArray(parsed) ? parsed : [];
+                        } catch (e) {
+                            console.error('Ошибка парсинга куки:', e);
+                            return [];
+                        }
+                    }
+                }
+                return [];
+            }
+            
+            function loadSavedFormulas() {
+                const formulas = getSavedFormulas();
+                savedFormulasDiv.innerHTML = '';
+                
+                formulas.forEach(formula => {
+                    const button = document.createElement('button');
+                    button.className = 'formula-button';
+                    button.textContent = formula;
+                    button.addEventListener('click', () => {
+                        formulaInput.value = formula;
+                        formulaInput.focus();
+                        processRoll();
+                    });
+                    savedFormulasDiv.appendChild(button);
+                });
+            }
+        });
+    </script>
+</body>
+</html>
